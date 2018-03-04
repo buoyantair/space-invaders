@@ -326,17 +326,25 @@
 
 ;; ListOfFoe ListOfProj -> ListOfFoe
 ;; produce a new list of foes while filtering out foes that collided with any projectiles
-(check-expect (filter-foes (list (make-foe 10 10 -5) (make-foe 70 70 5))
-                           (list (make-proj 10 10) (make-proj 500 500)))
-              (list (make-foe 70 70 5)))
-(check-expect (filter-foes (list (make-foe 50 50 -5) (make-foe 100 100 5) (make-foe 400 400 2))
-                           (list (make-proj 100 100) (make-proj 500 500)))
-              (list (make-foe 50 50 -5) (make-foe 400 400 2)))
+;(check-expect (filter-foes (list (make-foe 10 10 -5) (make-foe 70 70 5))
+;                           (list (make-proj 10 10) (make-proj 500 500)))
+;              (list (make-foe 70 70 5)))
+;(check-expect (filter-foes (list (make-foe 50 50 -5) (make-foe 100 100 5) (make-foe 400 400 2))
+;                           (list (make-proj 100 100) (make-proj 500 500)))
+;              (list (make-foe 50 50 -5) (make-foe 400 400 2)))
 (define (filter-foes lof lop)
   (cond [(empty? lof) empty]
         [else
          (if (any-proj-collided? (first lof) lop)
-             (filter-foes (rest lof) lop)
+             (append 
+              (list
+               (make-foe (random SCREENW) 0 (cond [(<= 5 (random 10)) (- FOE-SWNG)]
+                                                  [else FOE-SWNG]
+                                                  ))
+               (make-foe (random SCREENW) 0 (cond [(<= 5 (random 10)) (- FOE-SWNG)]
+                                                  [else FOE-SWNG]
+                                                  )))
+             (filter-foes (rest lof) lop))
              (cons (first lof)
                    (filter-foes (rest lof) lop)))]))
 
