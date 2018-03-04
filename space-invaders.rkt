@@ -173,22 +173,6 @@
    (list (make-proj (tank-x t) (tank-y t)))
    lop))
 
-;; ListOfProj -> Image
-;; place images in MTS from the list
-(check-expect (posn-projs LOP1) empty)
-(check-expect (posn-projs LOP2)
-              (list (make-posn (proj-x P1) (proj-y P1))
-                    (make-posn (proj-x P2) (proj-y P2))))
-(define (posn-projs lop)
-  (cond [(empty? lop) empty]
-        [else
-         (append 
-          (if (empty? (rest lop))
-              (list (make-posn (proj-x (first lop)) (proj-y (first lop))))
-              (cons (make-posn (proj-x (first lop)) (proj-y (first lop)))
-                    (posn-projs (rest lop)))))]))
-
-
 ;; Image ListOfProj -> ListOfImage
 ;; produce a list of images from the consumed list
 (check-expect (repeat-projs LOP1) empty)
@@ -297,20 +281,6 @@
         [else
          (cons (update-proj (first lop))
                (update-projs (rest lop) t))]))
-;; ListOfFoe -> ListOfPosn
-;; Create a list of positions
-(check-expect (posn-foes LOF1) empty)
-(check-expect (posn-foes LOF2)
-              (list (make-posn (foe-x F1) (foe-y F1))
-                    (make-posn (foe-x F2) (foe-y F2))))
-(define (posn-foes lof)
-  (cond [(empty? lof) empty]
-        [else
-         (if (empty? (rest lof))
-             (make-posn (foe-x (first lof)) (foe-y (first lof)))
-             (list (make-posn (foe-x (first lof)) (foe-y (first lof)))
-                   (posn-foes (rest lof))))]))
-
 
 ;; Foe -> Boolean
 ;; produce true if the foe has touched the sides
@@ -336,7 +306,9 @@
 
 ;; Proj Foe -> Boolean
 (define (collided? p f)
-  (and (>= (proj-x p) (- (foe-x f) (/ (image-width FOE) 2)))
+  (and (foe? f)
+       (proj? p)
+       (>= (proj-x p) (- (foe-x f) (/ (image-width FOE) 2)))
        (<= (proj-x p) (+ (foe-x f) (/ (image-width FOE) 2)))
        (>= (proj-y p) (- (foe-y f) (/ (image-width FOE) 2)))
        (<= (proj-y p) (+ (foe-y f) (/ (image-width FOE) 2)))))
@@ -353,7 +325,7 @@
               (any-proj-collided? f (rest lop)))]))
 
 ;; ListOfFoe ListOfProj -> ListOfFoe
-;; produce a new list of foes while filtering our foes that collided with any projectiles
+;; produce a new list of foes while filtering out foes that collided with any projectiles
 (check-expect (filter-foes (list (make-foe 10 10 -5) (make-foe 70 70 5))
                            (list (make-proj 10 10) (make-proj 500 500)))
               (list (make-foe 70 70 5)))
@@ -367,6 +339,33 @@
              (filter-foes (rest lof) lop)
              (cons (first lof)
                    (filter-foes (rest lof) lop)))]))
+
+;; Proj ListOfFoe -> Boolean
+;; produce true if any of the foes collide with the projectile.
+(check-expect (any-foe-collided? (make-proj 10 10) (list (make-foe 10 10 -5) (make-foe 500 500 -5))) true)
+(check-expect (any-foe-collided? (make-proj 52 52) (list (make-foe 500 500 5) (make-foe 600 600 5))) false)
+(define (any-foe-collided? p lof)
+  (cond [(empty? lof) false]
+        [else
+          (if (collided? p (first lof))
+              true
+              (any-foe-collided? p (rest lof)))]))
+
+;; ListOfProj ListOfFoe -> ListOfProj
+;; produce a new list of proj while filtering out projs that collide with any of the foes.
+(check-expect (filter-projs (list (make-proj 10 10) (make-proj 500 500))
+                            (list (make-foe 10 10 -5) (make-foe 70 70 5)))
+              (list (make-proj 500 500)))
+(check-expect (filter-projs (list (make-proj 100 100) (make-proj 500 500))
+                            (list (make-foe 50 50 -5) (make-foe 100 100 5) (make-foe 400 400 2)))
+              (list (make-proj 500 500)))
+(define (filter-projs lop lof)
+  (cond [(empty? lop) empty]
+        [else
+         (if (any-foe-collided? (first lop) lof)
+             (filter-projs (rest lop) lof)
+             (cons (first lop)
+                   (filter-projs (rest lop) lof)))]))
 
 ;; ListOfFoe | ListOfProj -> ListOfPosns
 ;; produce a new list of positions from the given objects
@@ -388,8 +387,7 @@
 (define (tock g)
   (make-game (update-foes (filter-foes (game-foes g) (game-projs g)))
              (update-tank (game-tank g))
-             (update-projs (game-projs g) (game-tank g))))
-
+             (update-projs (filter-projs (game-projs g) (game-foes g)) (game-tank g))))
 
 ;; Game -> Image
 ;; render the current game state using the Game structure
